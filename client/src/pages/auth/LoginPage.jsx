@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="card">
           <h1 className="text-2xl font-semibold text-surface-900 dark:text-surface-100 text-center mb-1">
-            Report Room
+            Report Vault
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 text-center mb-6">
             Sign in to your account
@@ -75,10 +75,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-surface-500">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-              Register
-            </Link>
+            Contact an administrator to get an account.
           </p>
         </div>
       </div>

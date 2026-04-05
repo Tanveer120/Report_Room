@@ -881,118 +881,167 @@ async function streamExport(res, reportName, result) {
 
 ## 7. DETAILED TODO LIST
 
-### Backend Tasks
+> **Status: ALL TASKS COMPLETE ✅** — 81/81 tasks finished.
 
-#### Setup & Config
-- [ ] `B-01` Initialize `server/` with `npm init`, install Express, cors, dotenv (30 min)
-- [ ] `B-02` Install `oracledb`, configure Oracle Instant Client (30 min)
-- [ ] `B-03` Create `config/database.js` — connection pool with all options (30 min)
-- [ ] `B-04` Create `config/environment.js` — env var validation (20 min)
-- [ ] `B-05` Create `.env.example` with all required variables (10 min)
-- [ ] `B-06` Create `utils/logger.js` (Winston) + `utils/api-error.js` + `utils/async-handler.js` (30 min)
-- [ ] `B-07` Create `middleware/error.middleware.js` — global error handler (20 min)
-- [ ] `B-08` Create `app.js` — Express app with middleware chain (30 min)
-- [ ] `B-09` Create `server.js` — HTTP server entry point (15 min)
+### Backend Tasks (48/48 ✅)
 
-#### Database & DDL
-- [ ] `B-10` Write DDL script for all tables + sequences + indexes (30 min)
-- [ ] `B-11` Write DDL for `gtt_filter_values` GTT (10 min)
-- [ ] `B-12` Write seed script for admin user (20 min)
-- [ ] `B-13` Test database connectivity + pool behavior (30 min)
+#### Setup & Config (B-01 to B-09) ✅
+- [x] `B-01` Initialize `server/` with `npm init`, install Express, cors, dotenv
+- [x] `B-02` Install `oracledb`, configure Oracle Instant Client
+- [x] `B-03` Create `config/database.js` — connection pool with all options
+- [x] `B-04` Create `config/environment.js` — env var validation
+- [x] `B-05` Create `.env.example` with all required variables
+- [x] `B-06` Create `utils/logger.js` (Winston) + `utils/api-error.js` + `utils/async-handler.js`
+- [x] `B-07` Create `middleware/error.middleware.js` — global error handler
+- [x] `B-08` Create `app.js` — Express app with middleware chain
+- [x] `B-09` Create `server.js` — HTTP server entry point
 
-#### Authentication
-- [ ] `B-14` Create `services/auth.service.js` — hashPassword, comparePassword, generateTokens (45 min)
-- [ ] `B-15` Create `controllers/auth.controller.js` — register, login, refresh, me (45 min)
-- [ ] `B-16` Create `middleware/auth.middleware.js` — JWT verification (30 min)
-- [ ] `B-17` Create `middleware/role.middleware.js` — role checking (20 min)
-- [ ] `B-18` Create `routes/auth.routes.js` (15 min)
-- [ ] `B-19` Create `validators/auth.validator.js` — Joi schemas (20 min)
-- [ ] `B-20` Test complete auth flow with Postman/Thunder Client (30 min)
+#### Database & DDL (B-10 to B-13) ✅
+- [x] `B-10` Write DDL script for all tables + sequences + indexes
+- [x] `B-11` Write DDL for `gtt_filter_values` GTT
+- [x] `B-12` Write seed script for admin user
+- [x] `B-13` Test database connectivity + pool behavior
 
-#### Report CRUD
-- [ ] `B-21` Create `services/report.service.js` — CRUD operations (60 min)
-- [ ] `B-22` Create `controllers/report.controller.js` (45 min)
-- [ ] `B-23` Create `routes/report.routes.js` with role guards (15 min)
-- [ ] `B-24` Create `validators/report.validator.js` — Joi schemas for create/update (30 min)
-- [ ] `B-25` Test report CRUD endpoints (30 min)
+#### Authentication (B-14 to B-20) ✅
+- [x] `B-14` Create `services/auth.service.js` — hashPassword, comparePassword, generateTokens
+- [x] `B-15` Create `controllers/auth.controller.js` — login, refresh, me
+- [x] `B-16` Create `middleware/auth.middleware.js` — JWT verification
+- [x] `B-17` Create `middleware/role.middleware.js` — role checking
+- [x] `B-18` Create `routes/auth.routes.js`
+- [x] `B-19` Create `validators/auth.validator.js` — Joi schemas
+- [x] `B-20` Test complete auth flow
 
-#### Query Execution Engine
-- [ ] `B-26` Create `services/query-engine/sql-validator.js` — SELECT-only enforcement (45 min)
-- [ ] `B-27` Create `services/query-engine/param-binder.js` — standard binding + IN expansion (60 min)
-- [ ] `B-28` Create `services/query-engine/gtt-manager.js` — bulk insert + SQL rewriting (60 min)
-- [ ] `B-29` Create `services/query-engine/sql-rewriter.js` — IN clause → GTT subquery (45 min)
-- [ ] `B-30` Create `services/query-engine/index.js` — orchestrate full execution flow (60 min)
-- [ ] `B-31` Create `services/execute.service.js` — execution orchestration + logging (45 min)
-- [ ] `B-32` Create `controllers/execute.controller.js` (30 min)
-- [ ] `B-33` Create `routes/execute.routes.js` (15 min)
-- [ ] `B-34` Create `validators/execute.validator.js` (20 min)
-- [ ] `B-35` Test execution with ≤999 values (30 min)
-- [ ] `B-36` Test execution with >999 values (GTT path) (45 min)
-- [ ] `B-37` Test execution with multiple params all >999 (30 min)
+#### Report CRUD (B-21 to B-25) ✅
+- [x] `B-21` Create `services/report.service.js` — CRUD operations
+- [x] `B-22` Create `controllers/report.controller.js`
+- [x] `B-23` Create `routes/report.routes.js` with role guards
+- [x] `B-24` Create `validators/report.validator.js` — Joi schemas for create/update
+- [x] `B-25` Test report CRUD endpoints
 
-#### Excel Export
-- [ ] `B-38` Install `exceljs`, create `services/export.service.js` (60 min)
-- [ ] `B-39` Create `controllers/export.controller.js` — streaming response (30 min)
-- [ ] `B-40` Create `routes/export.routes.js` (10 min)
-- [ ] `B-41` Test small dataset export (<1K rows) (20 min)
-- [ ] `B-42` Test large dataset export (>50K rows) with streaming (30 min)
+#### Query Execution Engine (B-26 to B-37) ✅
+- [x] `B-26` Create `services/query-engine/sql-validator.js` — SELECT-only enforcement
+- [x] `B-27` Create `services/query-engine/param-binder.js` — standard binding + IN expansion
+- [x] `B-28` Create `services/query-engine/gtt-manager.js` — bulk insert + SQL rewriting
+- [x] `B-29` Create `services/query-engine/sql-rewriter.js` — IN clause → GTT subquery
+- [x] `B-30` Create `services/query-engine/index.js` — orchestrate full execution flow
+- [x] `B-31` Create `services/execute.service.js` — execution orchestration + logging
+- [x] `B-32` Create `controllers/execute.controller.js`
+- [x] `B-33` Create `routes/execute.routes.js`
+- [x] `B-34` Create `validators/execute.validator.js`
+- [x] `B-35` Test execution with ≤999 values
+- [x] `B-36` Test execution with >999 values (GTT path)
+- [x] `B-37` Test execution with multiple params all >999
 
-#### Security & Hardening
-- [ ] `B-43` Add `helmet` + `express-rate-limit` middleware (20 min)
-- [ ] `B-44` Add request body size limits (10 min)
-- [ ] `B-45` Add query execution timeout handling (30 min)
-- [ ] `B-46` Add concurrent export semaphore (30 min)
-- [ ] `B-47` Security test: attempt SQL injection vectors (45 min)
-- [ ] `B-48` Add health check endpoint (`GET /api/health` — pool stats) (15 min)
+#### Excel Export (B-38 to B-42) ✅
+- [x] `B-38` Install `exceljs`, create `services/export.service.js`
+- [x] `B-39` Create `controllers/export.controller.js` — streaming response
+- [x] `B-40` Create `routes/export.routes.js`
+- [x] `B-41` Test small dataset export (<1K rows)
+- [x] `B-42` Test large dataset export (>50K rows) with streaming
+
+#### Security & Hardening (B-43 to B-48) ✅
+- [x] `B-43` Add `helmet` + `express-rate-limit` middleware
+- [x] `B-44` Add request body size limits
+- [x] `B-45` Add query execution timeout handling
+- [x] `B-46` Add concurrent export semaphore
+- [x] `B-47` Security test: attempt SQL injection vectors
+- [x] `B-48` Add health check endpoint (`GET /api/health` — pool stats)
+
+#### Role-Based Access (D-01 to D-06, S-01 to S-08, C-01 to C-09, W-01 to W-04) ✅
+- [x] `D-01` Create `04_create_roles_tables.sql` — sequences, 5 tables, indexes
+- [x] `D-02` Create `04_seed_roles.sql` — seed default roles and categories
+- [x] `D-03` Add `is_admin` column to roles table
+- [x] `D-04` Update `seed-admin.js` — assign admin user to Admin role
+- [x] `D-05` Update `03_drop_all.sql` — add DROP for new tables
+- [x] `D-06` Update `test-db.js` — check role/category tables
+- [x] `S-01` Create `role.service.js` — full CRUD, category assignment
+- [x] `S-02` Create `category.service.js` — full CRUD, cascade delete
+- [x] `S-03` Create `user-admin.service.js` — user CRUD, role assignment
+- [x] `S-04` Create `access.service.js` — `canAccessReport`, `getUserAccessibleCategoryIds`
+- [x] `S-05` Modify `auth.service.js` — `findUserById` JOINs roles, returns `roles` array
+- [x] `S-06` Modify `report.service.js` — filter by accessible categories, category assignment
+- [x] `S-07` Modify `execute.service.js` — access check before execution
+- [x] `S-08` Modify `export.service.js` — access check before export
+- [x] `C-01` Create `role.controller.js`
+- [x] `C-02` Create `category.controller.js`
+- [x] `C-03` Create `user-admin.controller.js`
+- [x] `C-04` Create `role.validator.js`
+- [x] `C-05` Create `category.validator.js`
+- [x] `C-06` Create `user-admin.validator.js`
+- [x] `C-07` Create `role.routes.js`
+- [x] `C-08` Create `category.routes.js`
+- [x] `C-09` Create `user-admin.routes.js`
+- [x] `W-01` Remove `POST /register` from auth routes
+- [x] `W-02` Update `auth.middleware.js` — `req.user.roles` array
+- [x] `W-03` Update `role.middleware.js` — `requireAdmin` checks `roles` array
+- [x] `W-04` Wire up admin routes in `app.js`
 
 ---
 
-### Frontend Tasks
+### Frontend Tasks (33/33 ✅)
 
-#### Setup & Design System
-- [ ] `F-01` Initialize Vite + React project (20 min)
-- [ ] `F-02` Install + configure Tailwind CSS v3 (20 min)
-- [ ] `F-03` Create design tokens in `index.css` (colors, fonts, animations) (30 min)
-- [ ] `F-04` Install dependencies: `axios`, `react-router-dom`, `react-hot-toast` (10 min)
+#### Setup & Design System (F-01 to F-04) ✅
+- [x] `F-01` Initialize Vite + React project
+- [x] `F-02` Install + configure Tailwind CSS v3
+- [x] `F-03` Create design tokens in `index.css` (colors, fonts, animations)
+- [x] `F-04` Install dependencies: `axios`, `react-router-dom`, `react-hot-toast`
 
-#### UI Components
-- [ ] `F-05` Build `Button`, `Input`, `Select`, `TextArea` components (45 min)
-- [ ] `F-06` Build `Modal`, `Spinner`, `Toast` components (30 min)
-- [ ] `F-07` Build `Table` component with sorting (45 min)
-- [ ] `F-08` Build `DatePicker` component (30 min)
-- [ ] `F-09` Build `MultiValueInput` — tag-style with paste support (60 min)
-- [ ] `F-10` Build `AppLayout`, `Sidebar`, `Header` components (45 min)
+#### UI Components (F-05 to F-10) ✅
+- [x] `F-05` Build `Button`, `Input`, `Select`, `TextArea` components
+- [x] `F-06` Build `Modal`, `Spinner`, `Toast` components
+- [x] `F-07` Build `Table` component with sorting
+- [x] `F-08` Build `DatePicker` component (react-datepicker)
+- [x] `F-09` Build `MultiValueInput` — tag-style with paste support
+- [x] `F-10` Build `AppLayout`, `Sidebar`, `Header` components
 
-#### Auth & Routing
-- [ ] `F-11` Create `services/api.js` — Axios instance + interceptors (30 min)
-- [ ] `F-12` Create `services/auth.service.js` (20 min)
-- [ ] `F-13` Create `context/AuthContext.jsx` — JWT state management (45 min)
-- [ ] `F-14` Create `LoginPage.jsx` with form (30 min)
-- [ ] `F-15` Create `ProtectedRoute.jsx` + role-based routing (30 min)
-- [ ] `F-16` Set up `App.jsx` with router + layout (20 min)
+#### Auth & Routing (F-11 to F-16) ✅
+- [x] `F-11` Create `api/apiClient.js` — Axios instance + interceptors
+- [x] `F-12` Create `api/adminApi.js` — admin API client
+- [x] `F-13` Create `context/AuthContext.jsx` — JWT state management
+- [x] `F-14` Create `LoginPage.jsx` with form
+- [x] `F-15` Create `ProtectedRoute.jsx` + role-based routing
+- [x] `F-16` Set up `App.jsx` with router + layout
 
-#### User Pages
-- [ ] `F-17` Create `DashboardPage.jsx` — report cards grid with search (45 min)
-- [ ] `F-18` Create `ReportCard.jsx` component (20 min)
-- [ ] `F-19` Create `DynamicParamForm.jsx` — schema-driven form generation (60 min)
-- [ ] `F-20` Create `ReportRunnerPage.jsx` — params + results + export (60 min)
-- [ ] `F-21` Create `ResultsTable.jsx` — paginated results display (45 min)
-- [ ] `F-22` Implement Excel download handler (20 min)
-- [ ] `F-23` Create `ExecutionHistory.jsx` — past runs (30 min)
+#### User Pages (F-17 to F-23) ✅
+- [x] `F-17` Create `DashboardPage.jsx` — report cards grid with search
+- [x] `F-18` Create `ReportCard.jsx` component
+- [x] `F-19` Create `DynamicParamForm.jsx` — schema-driven form generation
+- [x] `F-20` Create `ReportDetailPage.jsx` — params + results + export
+- [x] `F-21` Create `ResultsTable.jsx` — paginated results display
+- [x] `F-22` Implement Excel download handler
+- [x] `F-23` Create `ExecutionHistory.jsx` — past runs
 
-#### Admin Pages
-- [ ] `F-24` Create `AdminReportsPage.jsx` — reports table with actions (45 min)
-- [ ] `F-25` Create `AdminReportFormPage.jsx` — create/edit form (60 min)
-- [ ] `F-26` Create `SqlEditor.jsx` — textarea with param highlighting (30 min)
-- [ ] `F-27` Create `ParamEditor.jsx` — add/remove/reorder params (45 min)
-- [ ] `F-28` Wire up admin CRUD flow end-to-end (30 min)
+#### Admin Pages (F-24 to F-28) ✅
+- [x] `F-24` Create `ManageReportsPage.jsx` — reports table with actions
+- [x] `F-25` Create `ReportEditorPage.jsx` — create/edit form
+- [x] `F-26` Create `SqlEditor.jsx` — textarea with param highlighting
+- [x] `F-27` Create `ParamEditor.jsx` — add/remove/reorder params
+- [x] `F-28` Wire up admin CRUD flow end-to-end
 
-#### Polish
-- [ ] `F-29` Add loading states + skeleton screens (30 min)
-- [ ] `F-30` Add error boundaries + empty states (20 min)
-- [ ] `F-31` Add toast notifications for all actions (15 min)
-- [ ] `F-32` Responsive design pass (mobile sidebar, table scroll) (30 min)
-- [ ] `F-33` Dark mode toggle if desired (30 min)
+#### Role-Based Access Pages (A-01 to A-10) ✅
+- [x] `A-01` Create `ManageRolesPage.jsx` — table with user/category counts
+- [x] `A-02` Create `ManageCategoriesPage.jsx` — table with report/role counts
+- [x] `A-03` Create `RoleEditorPage.jsx` — edit role with category assignment
+- [x] `A-04` Create `ManageUsersPage.jsx` — table with role badges
+- [x] `A-05` Create `UserEditorPage.jsx` — create user with role assignment
+- [x] `A-06` Create `RoleCheckboxGroup.jsx` — reusable role assignment
+- [x] `A-07` Create `CategoryCheckboxGroup.jsx` — reusable category assignment
+- [x] `A-08` Create `api/adminApi.js` — admin API client
+- [x] `A-09` Add admin routes to `AppRouter.jsx`
+- [x] `A-10` Update `Sidebar.jsx` — add Roles, Categories, Users links
+
+#### Polish (F-29 to F-33) ✅
+- [x] `F-29` Add loading states + skeleton screens
+- [x] `F-30` Add error boundaries + empty states
+- [x] `F-31` Add toast notifications for all actions
+- [x] `F-32` Responsive design pass (mobile sidebar, table scroll)
+- [x] `F-33` Dark mode toggle with system preference detection
+
+#### Access Control (AC-01 to AC-04) ✅
+- [x] `AC-01` `ReportsPage.jsx` — backend filters by accessible categories
+- [x] `AC-02` `ReportDetailPage.jsx` — "Access Denied" for 403
+- [x] `AC-03` `ReportEditorPage.jsx` — category assignment checkboxes
+- [x] `AC-04` `ProtectedRoute.jsx` — checks `roles` array
 
 ---
 

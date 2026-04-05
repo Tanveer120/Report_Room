@@ -2,7 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const { configureCors } = require('./config/cors');
 const { loadEnvironment } = require('./config/environment');
-const { getPoolStats } = require('./config/database');
+const { getPoolStats } = require('./config/connection-manager');
 const errorMiddleware = require('./middleware/error.middleware');
 const { generalLimiter, authLimiter, exportLimiter, executionLimiter } = require('./middleware/rate-limiter');
 const logger = require('./utils/logger');
@@ -28,16 +28,12 @@ function createApp() {
   });
 
   app.get('/api/health', async (req, res) => {
-    const poolStats = await getPoolStats();
+    const poolStats = getPoolStats();
     res.status(200).json({
       success: true,
       status: 'ok',
       timestamp: new Date().toISOString(),
-      database: poolStats ? {
-        connectionsInUse: poolStats.connectionsInUse,
-        connectionsOpen: poolStats.connectionsOpen,
-        queueLength: poolStats.queueLength,
-      } : 'not_connected',
+      database: Object.keys(poolStats).length > 0 ? poolStats : 'not_connected',
     });
   });
 
@@ -52,6 +48,18 @@ function createApp() {
 
   const exportRoutes = require('./routes/export.routes');
   app.use('/api/reports', exportRoutes);
+
+  const roleRoutes = require('./routes/role.routes');
+  app.use('/api/admin/roles', roleRoutes);
+
+  const categoryRoutes = require('./routes/category.routes');
+  app.use('/api/admin/categories', categoryRoutes);
+
+  const userAdminRoutes = require('./routes/user-admin.routes');
+  app.use('/api/admin/users', userAdminRoutes);
+
+  const connectionsRoutes = require('./routes/connections.routes');
+  app.use('/api/admin/connections', connectionsRoutes);
 
   app.use(errorMiddleware);
 

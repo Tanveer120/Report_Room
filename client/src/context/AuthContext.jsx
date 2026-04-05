@@ -39,15 +39,6 @@ export function AuthProvider({ children }) {
     return data.data;
   };
 
-  const register = async (username, email, password) => {
-    const { data } = await apiClient.post('/auth/register', { username, email, password });
-    localStorage.setItem('accessToken', data.data.accessToken);
-    localStorage.setItem('refreshToken', data.data.refreshToken);
-    localStorage.setItem('user', JSON.stringify(data.data.user));
-    setUser(data.data.user);
-    return data.data;
-  };
-
   const logout = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -59,9 +50,8 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
-    register,
     logout,
-    isAdmin: user?.role === 'admin',
+    isAdmin: user?.isAdmin ?? (user?.roles || []).includes('Admin'),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

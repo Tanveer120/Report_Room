@@ -93,6 +93,20 @@ async function testConnectivity() {
       console.log('   GTT gtt_filter_values NOT found (run scripts/02_create_gtt.sql first)\n');
     }
 
+    console.log('8. Checking role/category tables...');
+    const roleTables = await connection.execute(
+      `SELECT table_name FROM user_tables WHERE table_name IN ('ROLES','CATEGORIES','ROLE_CATEGORIES','USER_ROLES','REPORT_CATEGORIES') ORDER BY table_name`,
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    if (roleTables.rows.length === 5) {
+      console.log('   All role/category tables exist:');
+      roleTables.rows.forEach(row => console.log(`     - ${row.TABLE_NAME}`));
+      console.log('');
+    } else {
+      console.log(`   Missing role/category tables (found ${roleTables.rows.length}/5). Run scripts/04_create_roles_tables.sql\n`);
+    }
+
     console.log('=== All connectivity tests passed ===');
   } catch (err) {
     console.error(`\nERROR: ${err.message}`);

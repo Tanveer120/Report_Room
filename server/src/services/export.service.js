@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const { EXPORT_STREAM_THRESHOLD } = require('../utils/constants');
 const { fetchReportRowsForExport } = require('./execute.service');
+const { canAccessReport } = require('./access.service');
 const { withExportLimit } = require('../utils/semaphore');
 const ApiError = require('../utils/api-error');
 
@@ -75,7 +76,12 @@ async function exportLarge(res, reportName, data) {
   await workbook.commit();
 }
 
-async function exportToExcel(reportId, userParams, res) {
+async function exportToExcel(reportId, userParams, userId, res) {
+  const hasAccess = await canAccessReport(userId, reportId);
+  if (!hasAccess) {
+    throw new ApiError(403, 'You do not have permission to export this report');
+  }
+
   await withExportLimit(async () => {
     const data = await fetchReportRowsForExport(reportId, userParams);
 

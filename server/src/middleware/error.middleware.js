@@ -37,6 +37,11 @@ function errorMiddleware(err, req, res, _next) {
     message = 'Server is busy, please try again later';
   }
 
+  if (err.message?.match(/^ORA-/)) {
+    statusCode = 503;
+    message = 'Database error occurred. Please try again later.';
+  }
+
   if (statusCode >= 500) {
     logger.error(`[Error ${statusCode}] ${message}`, {
       stack: err.stack,

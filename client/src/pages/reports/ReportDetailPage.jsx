@@ -5,6 +5,7 @@ import DynamicParamForm from '../../components/reports/DynamicParamForm';
 import ResultsTable from '../../components/reports/ResultsTable';
 import ExecutionHistory from '../../components/reports/ExecutionHistory';
 import { SkeletonCard, SkeletonTable } from '../../components/Skeleton';
+import { EmptyState } from '../../components';
 import toast from 'react-hot-toast';
 
 export default function ReportDetailPage() {
@@ -12,6 +13,7 @@ export default function ReportDetailPage() {
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [params, setParams] = useState({});
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
@@ -19,6 +21,7 @@ export default function ReportDetailPage() {
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
+    setAccessDenied(false);
     try {
       const { data } = await apiClient.get(`/reports/${id}`);
       setReport(data.data);
@@ -27,9 +30,13 @@ export default function ReportDetailPage() {
         if (p.default_value) initialParams[p.param_name] = p.default_value;
       });
       setParams(initialParams);
-    } catch {
-      toast.error('Failed to load report');
-      navigate('/reports');
+    } catch (err) {
+      if (err.response?.status === 403) {
+        setAccessDenied(true);
+      } else {
+        toast.error('Failed to load report');
+        navigate('/reports');
+      }
     } finally {
       setLoading(false);
     }
@@ -87,6 +94,20 @@ export default function ReportDetailPage() {
         <SkeletonCard />
         <SkeletonTable />
       </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <EmptyState
+        title="Access Denied"
+        description="You do not have permission to view this report."
+        action={
+          <button className="btn-primary" onClick={() => navigate('/reports')}>
+            Back to Reports
+          </button>
+        }
+      />
     );
   }
 

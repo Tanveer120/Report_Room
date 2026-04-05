@@ -26,7 +26,7 @@ const logs = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, error: { message: 'Invalid report ID' } });
   }
 
-  const isAdmin = req.user.role === 'admin';
+  const isAdmin = !!req.user.isAdmin;
   const { page = 1, pageSize = 20 } = req.query;
 
   const result = await getExecutionLogs(reportId, req.user.id, {

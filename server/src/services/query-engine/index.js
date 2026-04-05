@@ -1,5 +1,5 @@
 const oracledb = require('oracledb');
-const { getPool } = require('../../config/database');
+const { getPool } = require('../../config/connection-manager');
 const SqlValidator = require('./sql-validator');
 const ParamBinder = require('./param-binder');
 const GttManager = require('./gtt-manager');
@@ -14,20 +14,20 @@ class QueryEngine {
     this.sqlRewriter = new SqlRewriter();
   }
 
-  async execute(sql, paramDefs, userParams) {
+  async execute(sql, paramDefs, userParams, connectionKey = 'default') {
     this.validator.validate(sql);
 
     const classified = this.paramBinder.classifyParams(userParams, paramDefs);
 
     if (classified.needsGTT) {
-      return this._executeWithGTT(sql, classified, userParams);
+      return this._executeWithGTT(sql, classified, userParams, connectionKey);
     }
 
-    return this._executeStandard(sql, classified);
+    return this._executeStandard(sql, classified, connectionKey);
   }
 
-  async _executeStandard(sql, classified) {
-    const pool = getPool();
+  async _executeStandard(sql, classified, connectionKey) {
+    const pool = getPool(connectionKey);
     const binds = this.paramBinder.buildBindObject(classified);
     let expandedSql = this.paramBinder.expandInClause(sql, classified);
 
@@ -52,8 +52,8 @@ class QueryEngine {
     }
   }
 
-  async _executeWithGTT(sql, classified, userParams) {
-    const pool = getPool();
+  async _executeWithGTT(sql, classified, userParams, connectionKey) {
+    const pool = getPool(connectionKey);
     const connection = await pool.getConnection();
 
     try {
@@ -94,7 +94,6 @@ class QueryEngine {
   _filterUnusedBinds(sql, binds) {
     const filtered = {};
     for (const key of Object.keys(binds)) {
-      // Regex correctly matches :paramName adhering to word boundaries (handles case-insensitivity)
       const placeholderPattern = new RegExp(`:\\b${key}\\b`, 'i');
       if (placeholderPattern.test(sql)) {
         filtered[key] = binds[key];

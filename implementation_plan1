@@ -1,0 +1,151 @@
+# Report Room — Full Project Audit & Fix Plan
+
+After thoroughly analyzing every file in both the server and client codebases, I've identified **17 issues** ranging from bugs and security holes to dead code and reliability problems. Here's the complete plan.
+
+---
+
+## User Review Required
+
+> [!CAUTION]
+> **Security: Plaintext credentials in `connections.json`** — Database passwords are stored in plaintext in a JSON file that could accidentally be committed to git. The `.gitignore` does NOT exclude `connections.json`. This is flagged but considered out of scope for this fix pass (would require an encryption layer).
+
+> [!WARNING]
+> **SQL Script Drift** — `01_create_tables.sql` still has a legacy `role` column on the `users` table (`role VARCHAR2(20) DEFAULT 'user' CHECK (role IN ('admin', 'user'))`). The application no longer uses this column since the role-based system was migrated to junction tables. The script also already includes `connection_key` inline, but `05_add_connection_key.sql` duplicates the same ALTER TABLE, which will fail on a fresh install. Both scripts need cleanup.
+
+---
+
+## Proposed Changes
+
+### 1. Server — Dead Code & Architecture
+
+#### [DELETE] [database.js](file:///d:/Report_Room/server/src/config/database.js)
+- This is **dead code** — the legacy single-pool database module. It's completely superseded by `connection-manager.js` and is not imported anywhere in the active codebase. Removing it eliminates confusion and the duplicate `oracledb.fetchAsString` call.
+
+---
+
+### 2. Server — Bug Fixes
+
+#### [MODIFY] [role.middleware.js](file:///d:/Report_Room/server/src/middleware/role.middleware.js)
+- **Bug**: `requireAdmin` checks for the string `'Admin'` in `req.user.roles`, but `req.user.roles` contains role *names* (strings). The check works for role names matching "Admin" exactly, but the `is_admin` flag on a role (which can apply to *any* role name) is never checked. A role named "SuperUser" with `is_admin=1` would NOT pass the admin check.
+- **Fix**: Change `requireAdmin` to check for the `isAdmin` boolean flag that should be set on `req.user` during authentication, rather than string-matching role names.
+
+#### [MODIFY] [auth.middleware.js](file:///d:/Report_Room/server/src/middleware/auth.middleware.js)
+- **Bug**: The `authenticate` middleware sets `req.user.roles` to role *name strings* only. It doesn't expose the `is_admin` flag, which means downstream middleware/controllers have to string-match `'Admin'` instead of checking the database flag.
+- **Fix**: Also set `req.user.isAdmin` based on the role flags from the database query (the `findUserById` service already retrieves `role_is_admin`).
+
+#### [MODIFY] [auth.service.js](file:///d:/Report_Room/server/src/services/auth.service.js)
+- **Bug**: `findUserById` returns role names but discards `is_admin` flag information. The `generateTokens` function stores role names in the JWT but not admin status.
+- **Fix**: Have `findUserById` also return an `isAdmin` boolean derived from `role_is_admin`. Include `isAdmin` in the JWT payload.
+
+#### [MODIFY] [execute.service.js](file:///d:/Report_Room/server/src/services/execute.service.js)
+- **Bug**: `_logExecution` uses `pool.execute()` (the custom shortcut) which auto-closes the connection. But the INSERT for `execution_logs` uses `autoCommit: true` — this is fine on its own, but the issue is that `paramsJson` is a CLOB and could exceed the VARCHAR2 bind size. The insert does not set proper bind metadata.
+- **Fix**: Add explicit CLOB bind definitions for `paramsJson` and `errorMessage` fields.
+
+#### [MODIFY] [report.validator.js](file:///d:/Report_Room/server/src/validators/report.validator.js)
+- **Bug**: The `createReportSchema` and `updateReportSchema` don't include `connection_key` in validation. This means the `connection_key` field is silently stripped by `stripUnknown: true` in the validate middleware, so the controller never receives it from the validated body.
+- **Fix**: Add `connection_key` to both schemas.
+
+---
+
+### 3. Server — Reliability & Robustness
+
+#### [MODIFY] [connection-manager.js](file:///d:/Report_Room/server/src/config/connection-manager.js)
+- **Issue**: `testConnection` doesn't handle the case where `connection.close()` fails. It should catch close errors in the finally block.
+- **Issue**: `initPool` doesn't re-initialize a pool if the previous one was closed/errored out. If `pools[key]` exists but the pool is terminated, it returns a dead pool.
+- **Fix**: Add pool health check in `initPool` and safe close handling in `testConnection`.
+
+#### [MODIFY] [error.middleware.js](file:///d:/Report_Room/server/src/middleware/error.middleware.js)
+- **Issue**: Oracle-specific error handling doesn't cover `ORA-` prefixed errors. Common errors like `ORA-12541` (TNS:no listener) aren't handled gracefully.
+- **Fix**: Add handling for `ORA-` prefix errors with a generic 503 database error response.
+
+#### [MODIFY] [semaphore.js](file:///d:/Report_Room/server/src/utils/semaphore.js)
+- **Bug**: The semaphore `release()` doesn't decrement `current` when processing a queued item. This means the semaphore counter drifts over time — after enough acquire/release cycles with queuing, `current` will be stuck at `max` forever.
+- **Fix**: Properly maintain the counter in the `release()` method.
+
+#### [MODIFY] [constants.js](file:///d:/Report_Room/server/src/utils/constants.js)
+- **Improvement**: Constants are hardcoded when they could be driven by environment variables. The `loadEnvironment()` validates these env vars but the constants module doesn't use them.
+- **Fix**: Read from environment where available, falling back to defaults.
+
+---
+
+### 4. Server — Security Hardening
+
+#### [MODIFY] [connections.controller.js](file:///d:/Report_Room/server/src/controllers/connections.controller.js)
+- **Bug**: The `save` endpoint accepts and writes raw connection objects to disk without any validation of the structure. A malformed payload could corrupt the connections file.
+- **Fix**: Add validation to ensure each connection entry has the required fields.
+
+#### [MODIFY] [.gitignore (root)](file:///d:/Report_Room/.gitignore)
+- **Issue**: `connections.json` contains database credentials but is NOT in `.gitignore`. This is a credential leak risk.
+- **Fix**: Add `server/src/config/connections.json` to `.gitignore`.
+
+---
+
+### 5. SQL Scripts — Cleanup
+
+#### [MODIFY] [01_create_tables.sql](file:///d:/Report_Room/server/scripts/01_create_tables.sql)
+- **Issue**: Still contains the legacy `role VARCHAR2(20)` column on the `users` table. This column is completely unused — the app uses the `user_roles` junction table exclusively.
+- **Fix**: Remove the `role` column from the CREATE TABLE statement.
+
+#### [MODIFY] [05_add_connection_key.sql](file:///d:/Report_Room/server/scripts/05_add_connection_key.sql)
+- **Issue**: This ALTER TABLE is redundant since `01_create_tables.sql` already includes `connection_key` in the CREATE TABLE statement. Running this on a fresh DB will error.
+- **Fix**: Add an existence check or mark the script as migration-only with a clear comment.
+
+---
+
+### 6. Client — Bug Fixes
+
+#### [MODIFY] [apiClient.js](file:///d:/Report_Room/client/src/api/apiClient.js)
+- **Issue**: With the Vite proxy configured, the base URL should be `/api` (relative), not `http://localhost:3000/api` (absolute). The absolute URL bypasses the Vite proxy in development, causing CORS issues. The `.env` file overrides this, but if `.env` is missing, it falls back to the absolute URL.
+- **Fix**: Change the default baseURL to `/api` to properly use the Vite proxy.
+
+#### [MODIFY] [ProtectedRoute.jsx](file:///d:/Report_Room/client/src/components/ProtectedRoute.jsx)
+- **Bug**: Admin check uses `(user.roles || []).includes('Admin')` which string-matches the exact name "Admin". This should be consistent with the backend admin check (use `isAdmin` from the auth context).
+- **Fix**: Use `isAdmin` from `useAuth()` context which already exists.
+
+#### [MODIFY] [AuthContext.jsx](file:///d:/Report_Room/client/src/context/AuthContext.jsx)
+- **Issue**: The `isAdmin` check uses `(user?.roles || []).includes('Admin')` — same hardcoded string problem. If the backend starts returning an `isAdmin` flag, the context should use it.
+- **Fix**: Check for `isAdmin` flag from the API response in addition to role name matching.
+
+---
+
+### 7. Client — Dark Mode CSS Gap
+
+#### [MODIFY] [index.css](file:///d:/Report_Room/client/src/index.css)
+- **Issue**: The React DatePicker custom CSS (`.rr-datepicker`) has no dark mode styles — it will render with a white background and light colors even in dark mode, creating a jarring visual mismatch.
+- **Fix**: Add dark mode overrides for all datepicker custom styles.
+
+---
+
+## Summary Table
+
+| # | File | Type | Severity |
+|---|------|------|----------|
+| 1 | `database.js` | Dead code removal | Low |
+| 2 | `role.middleware.js` | Logic bug | **High** |
+| 3 | `auth.middleware.js` | Missing data propagation | **High** |
+| 4 | `auth.service.js` | Missing admin flag | **High** |
+| 5 | `report.validator.js` | Field silently stripped | **Medium** |
+| 6 | `connection-manager.js` | Pool health + close safety | Medium |
+| 7 | `error.middleware.js` | Unhandled Oracle errors | Medium |
+| 8 | `semaphore.js` | Counter drift bug | **High** |
+| 9 | `constants.js` | Env var integration | Low |
+| 10 | `connections.controller.js` | Input validation | Medium |
+| 11 | `.gitignore` | Credential leak risk | **High** |
+| 12 | `01_create_tables.sql` | Legacy column removal | Low |
+| 13 | `05_add_connection_key.sql` | Duplicate migration | Low |
+| 14 | `apiClient.js` | Wrong baseURL | Medium |
+| 15 | `ProtectedRoute.jsx` | Hardcoded admin check | Medium |
+| 16 | `AuthContext.jsx` | Hardcoded admin check | Medium |
+| 17 | `index.css` | Dark mode datepicker | Low |
+| 18 | `execute.service.js` | CLOB bind definitions | Low |
+
+---
+
+## Verification Plan
+
+### Automated Checks
+- Run `node server.js` and verify it starts without errors
+- Run `npx vite build` in the client to verify the frontend compiles without errors
+
+### Manual Verification
+- All file changes should be reviewed by the user to ensure they align with the intended architecture

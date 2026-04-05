@@ -1,7 +1,8 @@
 const oracledb = require('oracledb');
-const { getPool } = require('../config/database');
+const { getPool } = require('../config/connection-manager');
 const queryEngine = require('./query-engine');
 const { getReportById, getParamsByReportId } = require('./report.service');
+const { canAccessReport } = require('./access.service');
 const ApiError = require('../utils/api-error');
 const { MAX_MULTI_VALUES } = require('../utils/constants');
 
@@ -16,6 +17,11 @@ async function executeReport(reportId, userParams, userId) {
     throw new ApiError(400, 'Report is not active');
   }
 
+  const hasAccess = await canAccessReport(userId, reportId);
+  if (!hasAccess) {
+    throw new ApiError(403, 'You do not have permission to run this report');
+  }
+
   const paramDefs = await getParamsByReportId(reportId);
 
   _validateParamValues(userParams, paramDefs);
@@ -23,7 +29,7 @@ async function executeReport(reportId, userParams, userId) {
   const startTime = Date.now();
 
   try {
-    const result = await queryEngine.execute(report.sql_query, paramDefs, userParams);
+    const result = await queryEngine.execute(report.sql_query, paramDefs, userParams, report.connection_key);
     const executionTimeMs = Date.now() - startTime;
 
     await _logExecution({
@@ -143,11 +149,11 @@ async function _logExecution({ reportId, userId, paramsJson, rowCount, execution
     {
       reportId,
       userId,
-      paramsJson: paramsJson || null,
+      paramsJson: { val: paramsJson || null, type: oracledb.DB_TYPE_CLOB },
       rowCount: rowCount || null,
       executionTimeMs: executionTimeMs || null,
       status,
-      errorMessage: errorMessage ? errorMessage.substring(0, 4000) : null,
+      errorMessage: { val: errorMessage ? errorMessage.substring(0, 4000) : null, type: oracledb.DB_TYPE_CLOB },
     },
     { autoCommit: true }
   );
@@ -167,7 +173,7 @@ async function fetchReportRowsForExport(reportId, userParams) {
   const paramDefs = await getParamsByReportId(reportId);
   _validateParamValues(userParams, paramDefs);
 
-  const result = await queryEngine.execute(report.sql_query, paramDefs, userParams);
+  const result = await queryEngine.execute(report.sql_query, paramDefs, userParams, report.connection_key);
 
   return {
     reportName: report.name,

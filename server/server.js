@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const { createApp } = require('./src/app');
-const { initializePool, closePool } = require('./src/config/database');
+const { loadConnections, initPool, closeAllPools } = require('./src/config/connection-manager');
 const { loadEnvironment } = require('./src/config/environment');
 const logger = require('./src/utils/logger');
 
@@ -9,11 +9,25 @@ async function startServer() {
   const env = loadEnvironment();
   const app = createApp();
 
-  try {
-    await initializePool();
-    logger.info('Database pool initialized successfully');
-  } catch (err) {
-    logger.error('Failed to initialize database pool. Server will start but DB-dependent routes will fail.', err.message);
+  const connections = loadConnections();
+  const connectionKeys = Object.keys(connections);
+
+  if (connectionKeys.length > 0) {
+    try {
+      await initPool('default');
+      logger.info('Default connection pool initialized from connections.json');
+      for (const key of connectionKeys) {
+        if (key !== 'default') {
+          await initPool(key).catch(err => {
+            logger.error(`Failed to initialize pool for "${key}":`, err.message);
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to initialize default connection pool. Server will start but DB-dependent routes will fail.', err.message);
+    }
+  } else {
+    logger.warn('No connections found in connections.json. Add at least a "default" connection.');
   }
 
   const server = app.listen(env.PORT, () => {
@@ -24,7 +38,7 @@ async function startServer() {
     logger.info(`${signal} received. Shutting down gracefully...`);
     server.close(async () => {
       try {
-        await closePool();
+        await closeAllPools();
         logger.info('Server shut down complete');
         process.exit(0);
       } catch (err) {

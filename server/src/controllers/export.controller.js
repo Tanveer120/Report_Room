@@ -7,7 +7,7 @@ const exportReport = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, error: { message: 'Invalid report ID' } });
   }
 
-  await exportToExcel(reportId, req.body, res);
+  await exportToExcel(reportId, req.body, req.user.id, res);
 });
 
 module.exports = {

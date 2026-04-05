@@ -1,19 +1,52 @@
 const oracledb = require('oracledb');
-const { getPool } = require('../config/database');
+const { getPool } = require('../config/connection-manager');
 const ApiError = require('../utils/api-error');
 
-async function listReports({ page = 1, pageSize = 20, search = '' } = {}) {
+async function listReports({ page = 1, pageSize = 20, search = '', userId = null, accessibleCategoryIds = null, isAdmin = false } = {}) {
   const pool = getPool();
   const offset = (page - 1) * pageSize;
   const hasSearch = search && search.trim().length > 0;
   const searchPattern = hasSearch ? `%${search.trim()}%` : null;
 
+  let categoryFilter = '';
+  const countBinds = {};
+  const listBinds = { offset, pageSize };
+
+  if (!isAdmin && userId) {
+    if (accessibleCategoryIds && accessibleCategoryIds.length > 0) {
+      const placeholders = accessibleCategoryIds.map((_, i) => `:cat${i}`).join(', ');
+      categoryFilter = `AND (
+        NOT EXISTS (SELECT 1 FROM report_categories rc2 WHERE rc2.report_id = r.id)
+        OR EXISTS (
+          SELECT 1 FROM report_categories rc3
+          WHERE rc3.report_id = r.id AND rc3.category_id IN (${placeholders})
+        )
+      )`;
+      accessibleCategoryIds.forEach((catId, i) => {
+        countBinds[`cat${i}`] = catId;
+        listBinds[`cat${i}`] = catId;
+      });
+    } else {
+      categoryFilter = `AND NOT EXISTS (SELECT 1 FROM report_categories rc2 WHERE rc2.report_id = r.id)`;
+    }
+  }
+
+  const searchClause = searchPattern
+    ? `AND LOWER(r.name) LIKE :search`
+    : '';
+
+  if (searchPattern) {
+    countBinds.search = searchPattern;
+    listBinds.search = searchPattern;
+  }
+
   const countResult = await pool.execute(
     `SELECT COUNT(*) AS total
      FROM reports r
      WHERE r.is_active = 1
-       AND (:search IS NULL OR LOWER(r.name) LIKE LOWER(:search))`,
-    { search: searchPattern },
+       ${searchClause}
+       ${categoryFilter}`,
+    countBinds,
     { outFormat: oracledb.OUT_FORMAT_OBJECT }
   );
   const total = countResult.rows[0].TOTAL;
@@ -24,10 +57,11 @@ async function listReports({ page = 1, pageSize = 20, search = '' } = {}) {
      FROM reports r
      JOIN users u ON r.created_by = u.id
      WHERE r.is_active = 1
-       AND (:search IS NULL OR LOWER(r.name) LIKE LOWER(:search))
+       ${searchClause}
+       ${categoryFilter}
      ORDER BY r.created_at DESC
      OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY`,
-    { search: searchPattern, offset, pageSize },
+    listBinds,
     { outFormat: oracledb.OUT_FORMAT_OBJECT }
   );
 
@@ -52,8 +86,8 @@ async function listReports({ page = 1, pageSize = 20, search = '' } = {}) {
 async function getReportById(id, { isAdmin = false } = {}) {
   const pool = getPool();
   const selectFields = isAdmin
-    ? 'r.id, r.name, r.description, r.sql_query, r.created_by, r.is_active, r.created_at, r.updated_at'
-    : 'r.id, r.name, r.description, r.created_by, r.is_active, r.created_at, r.updated_at';
+    ? 'r.id, r.name, r.description, r.sql_query, r.created_by, r.is_active, r.connection_key, r.created_at, r.updated_at'
+    : 'r.id, r.name, r.description, r.created_by, r.is_active, r.connection_key, r.created_at, r.updated_at';
 
   const result = await pool.execute(
     `SELECT ${selectFields}, u.username AS created_by_username
@@ -75,12 +109,13 @@ async function getReportById(id, { isAdmin = false } = {}) {
     created_by: row.CREATED_BY,
     created_by_username: row.CREATED_BY_USERNAME,
     is_active: row.IS_ACTIVE,
+    connection_key: row.CONNECTION_KEY || 'default',
     created_at: row.CREATED_AT,
     updated_at: row.UPDATED_AT,
   };
 }
 
-async function createReport({ name, description, sql_query, created_by, params = [] }) {
+async function createReport({ name, description, sql_query, created_by, params = [], categoryIds = [], connection_key = 'default' }) {
   const pool = getPool();
   let connection;
 
@@ -88,14 +123,15 @@ async function createReport({ name, description, sql_query, created_by, params =
     connection = await pool.getConnection();
 
     const insertResult = await connection.execute(
-      `INSERT INTO reports (name, description, sql_query, created_by, is_active)
-       VALUES (:name, :description, :sqlQuery, :createdBy, 1)
+      `INSERT INTO reports (name, description, sql_query, created_by, is_active, connection_key)
+       VALUES (:name, :description, :sqlQuery, :createdBy, 1, :connectionKey)
        RETURNING id, created_at, updated_at INTO :outId, :outCreatedAt, :outUpdatedAt`,
       {
         name,
         description: description || null,
         sqlQuery: sql_query,
         createdBy: created_by,
+        connectionKey: connection_key || 'default',
         outId: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
         outCreatedAt: { type: oracledb.DATE, dir: oracledb.BIND_OUT },
         outUpdatedAt: { type: oracledb.DATE, dir: oracledb.BIND_OUT },
@@ -127,10 +163,18 @@ async function createReport({ name, description, sql_query, created_by, params =
       }
     }
 
+    for (const catId of categoryIds) {
+      await connection.execute(
+        `INSERT INTO report_categories (report_id, category_id) VALUES (:reportId, :catId)`,
+        { reportId, catId }
+      );
+    }
+
     await connection.commit();
 
     const report = await getReportById(reportId, { isAdmin: true });
     report.params = await getParamsByReportId(reportId);
+    report.categories = await getReportCategories(reportId);
     return report;
   } catch (err) {
     if (connection) {
@@ -147,7 +191,7 @@ async function createReport({ name, description, sql_query, created_by, params =
   }
 }
 
-async function updateReport(id, { name, description, sql_query, params }) {
+async function updateReport(id, { name, description, sql_query, params, categoryIds, connection_key }) {
   const pool = getPool();
   let connection;
 
@@ -179,6 +223,10 @@ async function updateReport(id, { name, description, sql_query, params }) {
       updates.push('sql_query = :sqlQuery');
       binds.sqlQuery = sql_query;
     }
+    if (connection_key !== undefined) {
+      updates.push('connection_key = :connectionKey');
+      binds.connectionKey = connection_key || 'default';
+    }
 
     if (updates.length > 0) {
       updates.push('updated_at = SYSTIMESTAMP');
@@ -195,8 +243,9 @@ async function updateReport(id, { name, description, sql_query, params }) {
         { id }
       );
 
-      for (let i = 0; i < params.length; i++) {
-        const p = params[i];
+      const paramList = Array.isArray(params) ? params : [];
+      for (let i = 0; i < paramList.length; i++) {
+        const p = paramList[i];
         await connection.execute(
           `INSERT INTO report_params
            (report_id, param_name, param_label, param_type, placeholder, is_required, default_value, options_json, sort_order)
@@ -216,10 +265,25 @@ async function updateReport(id, { name, description, sql_query, params }) {
       }
     }
 
+    const effectiveCategoryIds = categoryIds !== undefined ? categoryIds : null;
+    if (effectiveCategoryIds !== null) {
+      await connection.execute(
+        `DELETE FROM report_categories WHERE report_id = :id`,
+        { id }
+      );
+      for (const catId of effectiveCategoryIds) {
+        await connection.execute(
+          `INSERT INTO report_categories (report_id, category_id) VALUES (:reportId, :catId)`,
+          { reportId: id, catId }
+        );
+      }
+    }
+
     await connection.commit();
 
     const report = await getReportById(id, { isAdmin: true });
     report.params = await getParamsByReportId(id);
+    report.categories = await getReportCategories(id);
     return report;
   } catch (err) {
     if (connection) {
@@ -275,6 +339,53 @@ async function getParamsByReportId(reportId) {
   }));
 }
 
+async function getReportCategories(reportId) {
+  const pool = getPool();
+  const result = await pool.execute(
+    `SELECT c.id, c.name, c.description
+     FROM categories c
+     JOIN report_categories rc ON c.id = rc.category_id
+     WHERE rc.report_id = :reportId
+     ORDER BY c.name ASC`,
+    { reportId },
+    { outFormat: oracledb.OUT_FORMAT_OBJECT }
+  );
+
+  return result.rows.map(row => ({
+    id: row.ID,
+    name: row.NAME,
+    description: row.DESCRIPTION,
+  }));
+}
+
+async function assignReportCategories(reportId, categoryIds) {
+  const pool = getPool();
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+
+    await connection.execute(
+      `DELETE FROM report_categories WHERE report_id = :reportId`,
+      { reportId }
+    );
+
+    for (const catId of categoryIds) {
+      await connection.execute(
+        `INSERT INTO report_categories (report_id, category_id) VALUES (:reportId, :catId)`,
+        { reportId, catId }
+      );
+    }
+
+    await connection.commit();
+  } catch (err) {
+    if (connection) await connection.rollback();
+    throw err;
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
 module.exports = {
   listReports,
   getReportById,
@@ -282,4 +393,6 @@ module.exports = {
   updateReport,
   deleteReport,
   getParamsByReportId,
+  getReportCategories,
+  assignReportCategories,
 };

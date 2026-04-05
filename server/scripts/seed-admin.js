@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const oracledb = require('oracledb');
 
 async function seedAdmin() {
-  const username = process.env.SEED_ADMIN_USERNAME || 'admin';
+  const username = process.env.SEED_ADMIN_USERNAME || 'admin123';
   const email = process.env.SEED_ADMIN_EMAIL || 'admin@reportroom.local';
   const password = process.env.SEED_ADMIN_PASSWORD || 'Admin@12345';
   const saltRounds = 10;
@@ -30,14 +30,24 @@ async function seedAdmin() {
       return;
     }
 
+    const result = await connection.execute(
+      `INSERT INTO users (username, email, password_hash, is_active)
+       VALUES (:username, :email, :hash, 1)
+       RETURNING id INTO :outId`,
+      { username, email, hash, outId: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT } },
+      { autoCommit: false }
+    );
+
+    const userId = result.outBinds.outId[0];
+
     await connection.execute(
-      `INSERT INTO users (username, email, password_hash, role, is_active)
-       VALUES (:username, :email, :hash, 'admin', 1)`,
-      { username, email, hash },
+      `INSERT INTO user_roles (user_id, role_id)
+       SELECT :userId, id FROM roles WHERE is_admin = 1 AND is_active = 1`,
+      { userId },
       { autoCommit: true }
     );
 
-    console.log(`Admin user "${username}" created successfully.`);
+    console.log(`Admin user "${username}" created successfully and assigned Admin role.`);
   } catch (err) {
     console.error('Failed to seed admin user:', err.message);
     process.exitCode = 1;

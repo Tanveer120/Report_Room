@@ -19,7 +19,6 @@ CREATE TABLE users (
     username      VARCHAR2(100) NOT NULL UNIQUE,
     email         VARCHAR2(255) NOT NULL UNIQUE,
     password_hash VARCHAR2(255) NOT NULL,
-    role          VARCHAR2(20) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
     is_active     NUMBER(1) DEFAULT 1,
     created_at    TIMESTAMP DEFAULT SYSTIMESTAMP,
     updated_at    TIMESTAMP DEFAULT SYSTIMESTAMP
@@ -35,6 +34,7 @@ CREATE TABLE reports (
     sql_query    CLOB NOT NULL,
     created_by   NUMBER NOT NULL REFERENCES users(id),
     is_active    NUMBER(1) DEFAULT 1,
+    connection_key VARCHAR2(100) DEFAULT 'default',
     created_at   TIMESTAMP DEFAULT SYSTIMESTAMP,
     updated_at   TIMESTAMP DEFAULT SYSTIMESTAMP
 );

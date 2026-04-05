@@ -16,6 +16,8 @@ const createReportSchema = Joi.object({
   description: Joi.string().allow('', null),
   sql_query: Joi.string().min(1).required(),
   params: Joi.array().items(paramSchema).default([]),
+  categoryIds: Joi.array().items(Joi.number().integer().positive()).default([]),
+  connection_key: Joi.string().max(100).default('default'),
 });
 
 const updateReportSchema = Joi.object({
@@ -23,6 +25,8 @@ const updateReportSchema = Joi.object({
   description: Joi.string().allow('', null),
   sql_query: Joi.string().min(1),
   params: Joi.array().items(paramSchema),
+  categoryIds: Joi.array().items(Joi.number().integer().positive()),
+  connection_key: Joi.string().max(100),
 }).min(1);
 
 module.exports = {

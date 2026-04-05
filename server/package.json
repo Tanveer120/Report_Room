@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:test": "node scripts/test-db.js",
-    "db:seed": "node scripts/seed-admin.js"
+    "db:seed": "node scripts/seed-admin.js",
+    "test:integration": "node scripts/test-integration.js"
   },
   "keywords": [],
   "author": "",

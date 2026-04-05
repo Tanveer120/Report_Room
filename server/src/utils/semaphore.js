@@ -33,10 +33,11 @@ class Semaphore {
 
   release() {
     if (this.queue.length > 0) {
+      // Hand off the slot to the next waiter — current stays the same
       const next = this.queue.shift();
       next();
     } else {
-      this.current--;
+      this.current = Math.max(0, this.current - 1);
     }
   }
 

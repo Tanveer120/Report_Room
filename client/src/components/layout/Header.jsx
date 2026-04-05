@@ -12,7 +12,7 @@ export default function Header({ onMenuClick }) {
   };
 
   return (
-    <header className="bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 px-4 lg:px-6 py-3 flex items-center gap-4">
+    <header className="h-16 shrink-0 bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 px-4 lg:px-6 flex items-center gap-4">
       <button
         className="lg:hidden p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700 text-surface-600 dark:text-surface-300"
         onClick={onMenuClick}

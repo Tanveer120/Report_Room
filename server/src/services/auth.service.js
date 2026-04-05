@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const oracledb = require('oracledb');
-const { getPool } = require('../config/database');
+const { getPool } = require('../config/connection-manager');
 const { loadEnvironment } = require('../config/environment');
 const ApiError = require('../utils/api-error');
 
@@ -20,7 +20,7 @@ function generateTokens(user) {
   const payload = {
     id: user.id,
     username: user.username,
-    role: user.role,
+    roles: user.roles || [],
   };
 
   const accessToken = jwt.sign(payload, env.JWT_ACCESS_SECRET, {
@@ -53,106 +53,98 @@ function verifyRefreshToken(token) {
 async function findUserByUsername(username) {
   const pool = getPool();
   const result = await pool.execute(
-    `SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
-     FROM users
-     WHERE username = :username`,
+    `SELECT u.id, u.username, u.email, u.password_hash, u.is_active, u.created_at, u.updated_at,
+            r.id AS role_id, r.name AS role_name
+     FROM users u
+     LEFT JOIN user_roles ur ON u.id = ur.user_id
+     LEFT JOIN roles r ON ur.role_id = r.id
+     WHERE u.username = :username
+     ORDER BY r.name ASC`,
     { username },
     { outFormat: oracledb.OUT_FORMAT_OBJECT }
   );
 
   if (result.rows.length === 0) return null;
 
-  const row = result.rows[0];
+  const firstRow = result.rows[0];
+  const roles = result.rows
+    .filter(r => r.ROLE_ID !== null)
+    .map(r => r.ROLE_NAME);
+
   return {
-    id: row.ID,
-    username: row.USERNAME,
-    email: row.EMAIL,
-    password_hash: row.PASSWORD_HASH,
-    role: row.ROLE,
-    is_active: row.IS_ACTIVE,
-    created_at: row.CREATED_AT,
-    updated_at: row.UPDATED_AT,
+    id: firstRow.ID,
+    username: firstRow.USERNAME,
+    email: firstRow.EMAIL,
+    password_hash: firstRow.PASSWORD_HASH,
+    roles,
+    is_active: firstRow.IS_ACTIVE,
+    created_at: firstRow.CREATED_AT,
+    updated_at: firstRow.UPDATED_AT,
   };
 }
 
 async function findUserByEmail(email) {
   const pool = getPool();
   const result = await pool.execute(
-    `SELECT id, username, email, role, is_active FROM users WHERE email = :email`,
+    `SELECT u.id, u.username, u.email, u.is_active,
+            r.name AS role_name
+     FROM users u
+     LEFT JOIN user_roles ur ON u.id = ur.user_id
+     LEFT JOIN roles r ON ur.role_id = r.id
+     WHERE u.email = :email`,
     { email },
     { outFormat: oracledb.OUT_FORMAT_OBJECT }
   );
 
   if (result.rows.length === 0) return null;
 
-  const row = result.rows[0];
+  const firstRow = result.rows[0];
+  const roles = result.rows
+    .filter(r => r.ROLE_NAME !== null)
+    .map(r => r.ROLE_NAME);
+
   return {
-    id: row.ID,
-    username: row.USERNAME,
-    email: row.EMAIL,
-    role: row.ROLE,
-    is_active: row.IS_ACTIVE,
+    id: firstRow.ID,
+    username: firstRow.USERNAME,
+    email: firstRow.EMAIL,
+    roles,
+    is_active: firstRow.IS_ACTIVE,
   };
 }
 
 async function findUserById(id) {
   const pool = getPool();
   const result = await pool.execute(
-    `SELECT id, username, email, role, is_active, created_at, updated_at
-     FROM users
-     WHERE id = :id`,
+    `SELECT u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at,
+            r.id AS role_id, r.name AS role_name, r.is_admin AS role_is_admin, r.is_default AS role_is_default
+     FROM users u
+     LEFT JOIN user_roles ur ON u.id = ur.user_id
+     LEFT JOIN roles r ON ur.role_id = r.id
+     WHERE u.id = :id
+     ORDER BY r.name ASC`,
     { id },
     { outFormat: oracledb.OUT_FORMAT_OBJECT }
   );
 
   if (result.rows.length === 0) return null;
 
-  const row = result.rows[0];
+  const firstRow = result.rows[0];
+  const rolesWithMeta = result.rows
+    .filter(r => r.ROLE_ID !== null)
+    .map(r => ({ name: r.ROLE_NAME, is_admin: r.ROLE_IS_ADMIN }));
+
+  const roles = rolesWithMeta.map(r => r.name);
+  const isAdmin = rolesWithMeta.some(r => r.is_admin === 1);
+
   return {
-    id: row.ID,
-    username: row.USERNAME,
-    email: row.EMAIL,
-    role: row.ROLE,
-    is_active: row.IS_ACTIVE,
-    created_at: row.CREATED_AT,
-    updated_at: row.UPDATED_AT,
-  };
-}
-
-async function createUser({ username, email, password, role = 'user' }) {
-  const pool = getPool();
-  const passwordHash = await hashPassword(password);
-
-  const result = await pool.execute(
-    `INSERT INTO users (username, email, password_hash, role, is_active)
-     VALUES (:username, :email, :passwordHash, :role, 1)
-     RETURNING id, username, email, role, is_active, created_at, updated_at INTO
-       :outId, :outUsername, :outEmail, :outRole, :outIsActive, :outCreatedAt, :outUpdatedAt`,
-    {
-      username,
-      email,
-      passwordHash,
-      role,
-      outId: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
-      outUsername: { type: oracledb.STRING, maxSize: 100, dir: oracledb.BIND_OUT },
-      outEmail: { type: oracledb.STRING, maxSize: 255, dir: oracledb.BIND_OUT },
-      outRole: { type: oracledb.STRING, maxSize: 20, dir: oracledb.BIND_OUT },
-      outIsActive: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
-      outCreatedAt: { type: oracledb.DATE, dir: oracledb.BIND_OUT },
-      outUpdatedAt: { type: oracledb.DATE, dir: oracledb.BIND_OUT },
-    },
-    { autoCommit: true }
-  );
-
-  const out = result.outBinds;
-  return {
-    id: out.outId[0],
-    username: out.outUsername[0],
-    email: out.outEmail[0],
-    role: out.outRole[0],
-    is_active: out.outIsActive[0],
-    created_at: out.outCreatedAt[0],
-    updated_at: out.outUpdatedAt[0],
+    id: firstRow.ID,
+    username: firstRow.USERNAME,
+    email: firstRow.EMAIL,
+    roles,
+    isAdmin,
+    is_active: firstRow.IS_ACTIVE,
+    created_at: firstRow.CREATED_AT,
+    updated_at: firstRow.UPDATED_AT,
   };
 }
 
@@ -165,5 +157,4 @@ module.exports = {
   findUserByUsername,
   findUserByEmail,
   findUserById,
-  createUser,
 };

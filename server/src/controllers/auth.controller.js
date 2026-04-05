@@ -4,41 +4,9 @@ const {
   verifyRefreshToken,
   findUserByUsername,
   findUserById,
-  findUserByEmail,
-  createUser,
 } = require('../services/auth.service');
 const asyncHandler = require('../utils/async-handler');
 const ApiError = require('../utils/api-error');
-
-const register = asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body;
-
-  const existingUser = await findUserByUsername(username);
-  if (existingUser) {
-    throw new ApiError(409, 'Username already taken');
-  }
-
-  const existingEmail = await findUserByEmail(email);
-  if (existingEmail) {
-    throw new ApiError(409, 'Email already registered');
-  }
-
-  const user = await createUser({ username, email, password });
-  const tokens = generateTokens(user);
-
-  res.status(201).json({
-    success: true,
-    data: {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-      ...tokens,
-    },
-  });
-});
 
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
@@ -66,7 +34,7 @@ const login = asyncHandler(async (req, res) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: user.role,
+        roles: user.roles || [],
       },
       ...tokens,
     },
@@ -104,7 +72,7 @@ const me = asyncHandler(async (req, res) => {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      roles: user.roles || [],
       is_active: user.is_active,
       created_at: user.created_at,
     },
@@ -112,7 +80,6 @@ const me = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  register,
   login,
   refresh,
   me,

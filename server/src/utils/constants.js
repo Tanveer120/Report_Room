@@ -1,6 +1,8 @@
-const IN_CLAUSE_LIMIT = 999;
-const MAX_MULTI_VALUES = 50000;
-const QUERY_TIMEOUT_MS = 60000;
+const env = process.env;
+
+const IN_CLAUSE_LIMIT = parseInt(env.IN_CLAUSE_LIMIT, 10) || 999;
+const MAX_MULTI_VALUES = parseInt(env.MAX_MULTI_VALUES, 10) || 50000;
+const QUERY_TIMEOUT_MS = parseInt(env.QUERY_TIMEOUT_MS, 10) || 60000;
 const EXPORT_STREAM_THRESHOLD = 50000;
 const MAX_CONCURRENT_EXPORTS = 5;
 const GTT_BATCH_SIZE = 5000;

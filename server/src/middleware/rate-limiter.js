@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 2000, // Increased from 100 to 2000
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -13,7 +13,7 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100, // Increased from 20 to 100
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -24,7 +24,7 @@ const authLimiter = rateLimit({
 
 const exportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 30,
+  max: 200, // Increased from 30 to 200
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -35,7 +35,7 @@ const exportLimiter = rateLimit({
 
 const executionLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60,
+  max: 120, // Increased from 60 to 120
   standardHeaders: true,
   legacyHeaders: false,
   message: {

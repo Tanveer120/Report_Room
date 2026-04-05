@@ -20,7 +20,8 @@ const authenticate = asyncHandler(async (req, _res, next) => {
   req.user = {
     id: user.id,
     username: user.username,
-    role: user.role,
+    roles: user.roles || [],
+    isAdmin: !!user.isAdmin,
   };
 
   next();

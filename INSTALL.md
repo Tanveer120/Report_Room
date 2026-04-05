@@ -38,7 +38,7 @@ brew install instantclient-basic
 
 ```bash
 # Navigate to your project root
-cd D:\Report_Room
+cd Report_Room
 ```
 
 The project structure:
@@ -62,7 +62,9 @@ Report_Room/
 │   │   ├── context/        # Auth + Theme providers
 │   │   └── pages/          # Route pages
 │   └── package.json
-└── implementation_plan.md
+├── README.md
+├── INSTALL.md
+└── data_dictionary.md
 ```
 
 ---
@@ -79,12 +81,18 @@ Connect to your Oracle database using SQL*Plus, SQL Developer, or any Oracle cli
 
 -- 2. Create the Global Temporary Table (GTT)
 @server/scripts/02_create_gtt.sql
+
+-- 3. Create roles, categories, and junction tables
+@server/scripts/04_create_roles_tables.sql
+
+-- 4. Seed default roles and categories
+@server/scripts/04_seed_roles.sql
 ```
 
 If you need to tear down and start fresh:
 ```sql
 @server/scripts/03_drop_all.sql
--- Then re-run 01 and 02
+-- Then re-run 01, 02, 04, and seed
 ```
 
 ### 2.2 Seed Admin User
@@ -100,6 +108,8 @@ This creates a default admin user:
 - **Username:** `admin`
 - **Email:** `admin@reportroom.local`
 - **Password:** `Admin@12345`
+
+The admin user is automatically assigned the **Admin** role (full access to everything).
 
 To customize, set these env vars before running:
 ```bash
@@ -138,13 +148,26 @@ Expected output:
 
 6. Checking if tables exist...
    Found tables:
+     - CATEGORIES
      - EXECUTION_LOGS
+     - REPORT_CATEGORIES
      - REPORT_PARAMS
      - REPORTS
+     - ROLE_CATEGORIES
+     - ROLES
+     - USER_ROLES
      - USERS
 
 7. Checking if GTT exists...
    GTT gtt_filter_values exists.
+
+8. Checking role/category tables...
+   All role/category tables exist:
+     - CATEGORIES
+     - REPORT_CATEGORIES
+     - ROLE_CATEGORIES
+     - ROLES
+     - USER_ROLES
 
 === All connectivity tests passed ===
 ```
@@ -255,7 +278,6 @@ Expected response:
 
 ```bash
 cd client
-# Create .env file (no .env.example needed, just one variable)
 echo VITE_API_URL=http://localhost:3000/api > .env
 ```
 
@@ -301,17 +323,30 @@ npm run preview
    - **Username:** `admin`
    - **Password:** `Admin@12345`
 
-### 7.2 Create Your First Report
-1. Click **Manage Reports** in the sidebar (admin only)
+### 7.2 Set Up Roles & Categories (Admin)
+1. Click **Roles** in the sidebar → Create roles (e.g., "Finance", "HR", "Viewer")
+2. Click **Categories** → Create categories (e.g., "Financial Reports", "HR Reports")
+3. Edit each role → Assign which categories that role can access
+4. Toggle **Default** on a role to auto-assign it to new users
+
+### 7.3 Create Users (Admin)
+1. Click **Users** in the sidebar → **New User**
+2. Fill in username, email, password
+3. Assign one or more roles
+4. Users without explicit roles get the default role automatically
+
+### 7.4 Create Your First Report
+1. Click **Reports** in the admin section
 2. Click **New Report**
 3. Fill in:
    - **Report Name:** e.g., "Employee List"
    - **Description:** e.g., "All active employees"
    - **SQL Query:** e.g., `SELECT employee_id, first_name, last_name, department FROM employees WHERE status = 'ACTIVE'`
 4. Add parameters if needed (e.g., a `department` multi_value param)
-5. Click **Create Report**
+5. Assign categories to control who can see this report
+6. Click **Create Report**
 
-### 7.3 Run a Report
+### 7.5 Run a Report
 1. Go to **Reports** in the sidebar
 2. Click on your report card
 3. Fill in any parameters
@@ -321,20 +356,11 @@ npm run preview
 
 ---
 
-## Step 8: Register a Regular User (Optional)
-
-1. Go to `http://localhost:5173/register`
-2. Create a new account
-3. Regular users can **view and run** reports but **cannot create, edit, or delete** them
-
----
-
 ## Available API Endpoints
 
 ### Authentication (no auth required)
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Register new user |
 | POST | `/api/auth/login` | Login, returns tokens |
 | POST | `/api/auth/refresh` | Refresh access token |
 
@@ -342,15 +368,36 @@ npm run preview
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
 | GET | `/api/auth/me` | any | Get current user info |
-| GET | `/api/reports` | any | List active reports (paginated) |
-| GET | `/api/reports/:id` | any | Get report details + params |
-| POST | `/api/reports` | admin | Create new report |
-| PUT | `/api/reports/:id` | admin | Update report |
-| DELETE | `/api/reports/:id` | admin | Soft-delete report |
+| GET | `/api/reports` | any | List accessible reports (filtered by role categories) |
+| GET | `/api/reports/:id` | any | Get report details + params + categories |
 | POST | `/api/reports/:id/execute` | any | Execute report with params |
 | GET | `/api/reports/:id/logs` | any | Get execution history |
 | POST | `/api/reports/:id/export` | any | Export results as XLSX |
-| GET | `/api/health` | public | Health check + pool stats |
+
+### Admin only
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/reports` | Create new report |
+| PUT | `/api/reports/:id` | Update report |
+| DELETE | `/api/reports/:id` | Soft-delete report |
+| GET | `/api/admin/roles` | List all roles |
+| POST | `/api/admin/roles` | Create role |
+| PUT | `/api/admin/roles/:id` | Update role |
+| DELETE | `/api/admin/roles/:id` | Delete role |
+| POST | `/api/admin/roles/:id/categories` | Assign categories to role |
+| GET | `/api/admin/categories` | List all categories |
+| POST | `/api/admin/categories` | Create category |
+| PUT | `/api/admin/categories/:id` | Update category |
+| DELETE | `/api/admin/categories/:id` | Delete category |
+| GET | `/api/admin/users` | List all users |
+| POST | `/api/admin/users` | Create user |
+| DELETE | `/api/admin/users/:id` | Delete user |
+| POST | `/api/admin/users/:id/roles` | Assign roles to user |
+
+### Public
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Health check + pool stats |
 
 ---
 
@@ -387,6 +434,10 @@ npm install oracledb
 - Rate limited to 30 exports per hour per IP
 - Wait or adjust `exportLimiter` in `server/src/middleware/rate-limiter.js`
 
+### "Access Denied" on a report
+- The report has categories assigned that your roles don't have access to
+- Contact an admin to assign your role to the report's categories, or make the report public (remove all categories)
+
 ### Logs directory errors
 - The `server/logs/` directory is created automatically
 - If missing, create it: `mkdir server\logs`
@@ -405,3 +456,4 @@ npm install oracledb
 - [ ] Run `npm run build` in `client/` and serve `dist/` statically
 - [ ] Configure log rotation for `server/logs/`
 - [ ] Set up monitoring for pool stats via `/api/health`
+- [ ] Run `npm run test:integration` to verify all services

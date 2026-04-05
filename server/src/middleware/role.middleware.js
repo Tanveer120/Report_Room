@@ -6,7 +6,10 @@ function requireRole(...roles) {
       throw new ApiError(401, 'Authentication required');
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRoles = req.user.roles || [];
+    const hasRole = roles.some(r => userRoles.includes(r));
+
+    if (!hasRole) {
       throw new ApiError(403, 'Insufficient permissions');
     }
 
@@ -14,8 +17,24 @@ function requireRole(...roles) {
   };
 }
 
-const requireAdmin = requireRole('admin');
-const requireAny = (_req, _res, next) => next();
+const requireAdmin = (req, _res, next) => {
+  if (!req.user) {
+    throw new ApiError(401, 'Authentication required');
+  }
+
+  if (!req.user.isAdmin) {
+    throw new ApiError(403, 'Admin access required');
+  }
+
+  next();
+};
+
+const requireAny = (req, _res, next) => {
+  if (!req.user) {
+    throw new ApiError(401, 'Authentication required');
+  }
+  next();
+};
 
 module.exports = {
   requireRole,
